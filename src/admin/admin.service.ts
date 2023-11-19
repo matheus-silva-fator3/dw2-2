@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { PrismaService } from 'src/services/prisma.service';
-import { Status, UserRole } from '@prisma/client';
+import { Prisma, Status, User, UserRole } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -12,7 +12,7 @@ export class AdminService {
         ...CreateAdminDto,
         hashedPassword: password,
         status: Status.ACTIVE,
-        role: UserRole.BUYER,
+        role: UserRole.ADMIN,
       },
     });
   }
@@ -21,7 +21,32 @@ export class AdminService {
     return await this.prisma.user.findFirst({
       where: {
         email: email,
+        role: UserRole.ADMIN,
       },
+    });
+  }
+
+  async countUsers(params: { where?: Prisma.UserWhereInput }): Promise<number> {
+    const { where } = params;
+    return this.prisma.user.count({
+      where: { status: Status.ACTIVE, role: UserRole.ADMIN, ...where },
+    });
+  }
+
+  async getUsers(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.UserWhereUniqueInput;
+    where?: Prisma.UserWhereInput;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
+  }): Promise<User[]> {
+    const { skip, take, cursor, where, orderBy } = params;
+    return this.prisma.user.findMany({
+      skip,
+      take,
+      cursor,
+      where: { status: Status.ACTIVE, role: UserRole.ADMIN, ...where },
+      orderBy,
     });
   }
 }

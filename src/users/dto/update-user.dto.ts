@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import Validator from 'src/utils/Validator';
 
-export class LoginDto {
+export class UpdateUserDto {
   @ApiProperty({
-    description: 'Um email válido.',
-    example: 'email@email.com',
+    description: 'O nome do usuário',
+    example: 'Matheus André',
   })
-  email: string;
+  name: string;
 
   @ApiProperty({
     description: 'Uma senha de tamanho maior que 8 carácteres.',
@@ -16,13 +16,9 @@ export class LoginDto {
   password: string;
 }
 
-export const LoginSchema = Validator.object({
-  email: Validator.string().email(),
-  password: Validator.string().min(8),
+export const UpdateUserSchema = Validator.object({
+  name: Validator.string().optional(),
+  password: Validator.string().min(8).optional(),
 })
   .options({ presence: 'required' })
   .required();
-
-export class LoginOutput {
-  accessToken: string;
-}

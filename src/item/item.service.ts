@@ -1,7 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/services/prisma.service';
 import { Item } from '.prisma/client';
-import { Status } from '@prisma/client';
+import { Status, ItemTypes, Prisma } from '@prisma/client';
+
+export type ItemWithDetails = {
+  id: number;
+  title: string;
+  description: string;
+  status: Status;
+  createdAt: Date;
+  author: {
+    nome: string;
+  };
+  seller: {
+    name: string;
+  };
+  Category: {
+    name: string;
+  };
+  authorId: number;
+  sellerId: number;
+  categoryId: number;
+};
 
 @Injectable()
 export class ItemService {
@@ -10,6 +30,7 @@ export class ItemService {
   async createItem(
     title: string,
     description: string,
+    type: ItemTypes,
     sellerId: number,
     authorId: number,
     categoryId: number,
@@ -18,6 +39,7 @@ export class ItemService {
       data: {
         title,
         description,
+        type,
         status: Status.ACTIVE,
         seller: {
           connect: { id: sellerId },
@@ -58,32 +80,69 @@ export class ItemService {
     });
   }
 
-  async getAllItems(): Promise<Item[]> {
+  async getAllItems(): Promise<ItemWithDetails[]> {
     return this.prisma.item.findMany({
       where: {
         status: Status.ACTIVE,
       },
+      select: {
+        authorId: true,
+        categoryId: true,
+        description: true,
+        sellerId: true,
+        status: true,
+        title: true,
+        id: true,
+        createdAt: true,
+        author: {
+          select: {
+            nome: true,
+          },
+        },
+        seller: {
+          select: {
+            name: true,
+          },
+        },
+        Category: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
   }
 
-  async searchItems(query: string): Promise<Item[]> {
+  async searchItems(where: Prisma.ItemWhereInput): Promise<ItemWithDetails[]> {
     return this.prisma.item.findMany({
       where: {
+        ...where,
         status: Status.ACTIVE,
-        OR: [
-          {
-            title: {
-              contains: query,
-              mode: 'insensitive',
-            },
+      },
+      select: {
+        authorId: true,
+        categoryId: true,
+        description: true,
+        sellerId: true,
+        status: true,
+        title: true,
+        id: true,
+        createdAt: true,
+        author: {
+          select: {
+            nome: true,
           },
-          {
-            description: {
-              contains: query,
-              mode: 'insensitive',
-            },
+        },
+        seller: {
+          select: {
+            name: true,
           },
-        ],
+        },
+        Category: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }

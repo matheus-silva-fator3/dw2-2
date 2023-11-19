@@ -22,3 +22,7 @@ export const LoginSchema = Validator.object({
 })
   .options({ presence: 'required' })
   .required();
+
+export class LoginOutput {
+  accessToken: string;
+}

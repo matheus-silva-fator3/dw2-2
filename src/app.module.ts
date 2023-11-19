@@ -6,11 +6,11 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './guards/auth/auth.guard';
 import { PrismaService } from './services/prisma.service';
 import { AuthModule } from './guards/auth/auth.module';
-import { CategoryModule } from './categories/category.module';
-import { AuthorModule } from './author/author.module';
+import { ItemModule } from './item/item.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
-  imports: [UsersModule, AuthModule, CategoryModule, AuthorModule],
+  imports: [UsersModule, AuthModule, ItemModule, AdminModule],
   controllers: [],
   providers: [
     PrismaService,

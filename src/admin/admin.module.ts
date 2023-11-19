@@ -22,4 +22,4 @@ import { JsonWebTokenService } from 'src/services/jwt/implementations/jsonwebtok
     },
   ],
 })
-export class UsersModule {}
+export class AdminModule {}

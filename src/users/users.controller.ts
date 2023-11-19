@@ -4,7 +4,11 @@ import {
   Body,
   ConflictException,
   UnauthorizedException,
-  Get,
+  Put,
+  BadRequestException,
+  Param,
+  Delete,
+  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, CreateUserSchema } from './dto/create-user.dto';
@@ -12,10 +16,11 @@ import { Validate } from 'src/pipes/validation.pipe';
 import { ApiTags } from '@nestjs/swagger';
 import { HashService } from 'src/services/hash/hash.service';
 import { Docs } from 'src/decorators/docs.decorator';
-import { LoginDto, LoginSchema } from './dto/login.dto';
+import { LoginDto, LoginOutput, LoginSchema } from './dto/login.dto';
 import { JWTService, TokenType } from 'src/services/jwt/jwt.service';
-import { UserRole as RolesEnum } from '@prisma/client';
 import { Roles } from 'src/guards/auth/auth.decorator';
+import { transformIdIntoNumber } from 'src/utils/Params';
+import { UpdateUserDto, UpdateUserSchema } from './dto/update-user.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -30,7 +35,7 @@ export class UsersController {
   @Validate(CreateUserSchema)
   @Docs({
     operation: {
-      description: 'Cria um usuário BUYER se o email enviado for válido.',
+      description: 'Cria um usuário do tipo fornecido.',
     },
     responses: [
       {
@@ -58,12 +63,14 @@ export class UsersController {
   @Docs({
     operation: {
       description:
-        'Realiza um login de usuário retornando um token que deve ser utilizado como Bearer em requisições que requeiram autenticação.',
+        'Login para usuários comuns, retornará um token que deve ser setado como Authorization header para as proximas requisições. O header precisa começar com "Bearer " e ser acompanhado do jwt.',
     },
     responses: [
       {
         status: 201,
         description: 'Seção criada',
+        type: LoginOutput,
+        isArray: false,
       },
       {
         status: 401,
@@ -71,7 +78,7 @@ export class UsersController {
       },
     ],
   })
-  async login(@Body() loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto): Promise<LoginOutput> {
     const user = await this.usersService.getUserByEmail(loginDto.email);
     if (!user) throw new UnauthorizedException('Wrong credentials');
 
@@ -89,21 +96,68 @@ export class UsersController {
     };
   }
 
-  @Get('admin')
-  @Roles([RolesEnum.ADMIN])
   @Docs({
     operation: {
-      description: 'Retorna um Hello World para admnistradores',
+      description:
+        'Altera o nome ou senha de um usuario cujo id foi passado como parametro na requisição, requer autenticação para seu uso.',
     },
     responses: [
       {
         status: 200,
-        description: 'Sucesso!',
+        description: 'Usuário editado',
+      },
+      {
+        status: 400,
+        description: 'Usuário não existe ou foi deletado logicamente',
       },
     ],
   })
-  helloAuthenticatedAdmin() {
-    return 'Hello World!';
+  @Put(':id')
+  @Validate(UpdateUserSchema)
+  @Roles(['ADMIN'])
+  async updateUser(
+    @Body()
+    body: UpdateUserDto,
+    @Param()
+    { id },
+  ) {
+    const idNum = transformIdIntoNumber(id);
+
+    await this.checkUserExistence(idNum);
+
+    const hashedPassword = body.password
+      ? await this.hashService.hash(body.password)
+      : undefined;
+
+    await this.usersService.updateUser(idNum, body.name, hashedPassword);
+  }
+
+  @Docs({
+    operation: {
+      description:
+        'Deleta um usuario cujo id foi passado como parametro na requisição, requer autenticação para seu uso.',
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Usuário deletado',
+      },
+      {
+        status: 400,
+        description: 'Usuário não existe ou foi deletado logicamente',
+      },
+    ],
+  })
+  @Delete(':id')
+  @Roles(['ADMIN'])
+  async deleteUser(
+    @Param()
+    { id },
+  ) {
+    const idNum = transformIdIntoNumber(id);
+    await this.checkUserExistence(idNum);
+
+    await this.usersService.deleteUser(idNum);
   }
 
   private async checkUserEmailAvaliability(email: string) {
@@ -111,6 +165,14 @@ export class UsersController {
 
     if (user) {
       throw new ConflictException('This email is already taken');
+    }
+  }
+
+  private async checkUserExistence(userId: number) {
+    const item = await this.usersService.getUserById(userId);
+
+    if (!item) {
+      throw new NotFoundException('This user doesnt exists.');
     }
   }
 }

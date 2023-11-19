@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,7 +8,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { CreateItemDto, CreateItemSchema } from './dto/create-item.dto';
 import { UpdateItemDto, UpdateItemSchema } from './dto/update-item.dto';
 import { ItemService } from './item.service';
@@ -20,6 +19,9 @@ import { CategoryService } from 'src/categories/category.service';
 import { AuthorService } from 'src/author/author.service';
 import { Docs } from 'src/decorators/docs.decorator';
 import { Validate } from 'src/pipes/validation.pipe';
+import { ListItem } from './dto/list-items.dto';
+import { SearchQueryBuilder } from './entities/search';
+import { transformIdIntoNumber } from 'src/utils/Params';
 
 @ApiTags('item')
 @Controller('item')
@@ -56,6 +58,7 @@ export class ItemController {
     await this.itemService.createItem(
       body.title,
       body.description,
+      body.type,
       userInfo.id,
       body.authorId,
       body.categoryId,
@@ -69,47 +72,85 @@ export class ItemController {
     },
     responses: [
       {
-        status: 201,
-        description: 'Item criado com sucesso.',
+        status: 200,
+        description: 'Item editado com sucesso.',
       },
       {
         status: 404,
         description:
-          'O item não foi encontrado, ou você não tem permissão para modifica-lo.',
+          'O item não foi encontrado ou você não tem permissão para modifica-lo.',
       },
     ],
   })
   @Roles([UserRole.SELLER])
   @Validate(UpdateItemSchema)
   @Put(':id')
-  async updateItem(@Body() body: UpdateItemDto, @Param('id') id: string) {
-    const numberId = Number(id);
+  async updateItem(
+    @Body() body: UpdateItemDto,
+    @Param('id') id: string,
+    @User() userInfo: UserEntity,
+  ) {
+    const itemId = transformIdIntoNumber(id);
+    await this.userHasItem(userInfo.id, itemId);
 
-    if (isNaN(numberId)) {
-      throw new BadRequestException('Id needs to be a number');
-    }
-
-    await this.userHasItem(numberId);
-
-    await this.itemService.updateItem(numberId, body.title, body.description);
+    await this.itemService.updateItem(itemId, body.title, body.description);
   }
 
-  @ApiOperation({
-    description: 'Listagem de itens de todos não deletados.',
+  @Docs({
+    operation: {
+      description: 'Listagem de todos os itens não deletados logicamente.',
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Sucesso.',
+        type: ListItem,
+        isArray: true,
+      },
+    ],
   })
   @Get()
-  async getAllItems() {
-    return this.itemService.getAllItems();
+  async getAllItems(): Promise<ListItem[]> {
+    const items = await this.itemService.getAllItems();
+    return items.map((item): ListItem => new ListItem(item));
   }
 
-  @ApiOperation({
-    description:
-      'Busca. A query enviada irá ser pesquisada entre o titulo e a descrição do item.',
-    parameters: [{ name: 'query', in: 'query' }],
+  @Docs({
+    operation: {
+      description:
+        'Uma pesquisa dos itens registrados. Os parametros para pesquisa podem ou não estar presentes, não enviar nenhum parametro irá trazer todos os items. O parametro query irá ser pesquisado entre o titulo e a descrição do item. O parametro authorId irá pesquisar itens feitos por aquele autor. O parametro categoryId irá pesquisar por itens daquela categoria. Apenas itens não deletados serão pesquisados.',
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Sucesso.',
+        type: ListItem,
+        isArray: true,
+      },
+    ],
   })
   @Get('search')
-  async searchItems(@Query('query') query: string) {
-    return this.itemService.searchItems(query);
+  async searchItems(
+    @Query('query') query: string | undefined,
+    @Query('categoryId') categoryId: string | undefined,
+    @Query('authorId') authorId: string | undefined,
+  ): Promise<ListItem[]> {
+    const authorIdNumber = authorId
+      ? transformIdIntoNumber(authorId)
+      : undefined;
+
+    const categoryIdNumber = categoryId
+      ? transformIdIntoNumber(categoryId)
+      : undefined;
+
+    const { where } = new SearchQueryBuilder()
+      .query(query)
+      .author(authorIdNumber)
+      .category(categoryIdNumber);
+
+    const itens = await this.itemService.searchItems(where);
+
+    return itens.map((item): ListItem => new ListItem(item));
   }
 
   private async checkCategoryExistence(id: number) {
