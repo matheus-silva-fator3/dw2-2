@@ -32,6 +32,15 @@ export class ItemService {
     });
   }
 
+  async userHasItem(userId: number, itemId: number) {
+    return this.prisma.item.findFirst({
+      where: {
+        id: itemId,
+        sellerId: userId,
+      },
+    });
+  }
+
   async updateItem(
     id: number,
     title: string,

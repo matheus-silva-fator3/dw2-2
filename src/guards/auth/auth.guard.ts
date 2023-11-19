@@ -10,7 +10,7 @@ import {
   TokenNotProvidedException,
   UnsuficientPermissionsException,
 } from 'src/guards/auth/auth.exception';
-import { Roles as RoleEnum } from '@prisma/client';
+import { UserRole as RoleEnum } from '@prisma/client';
 import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
@@ -47,7 +47,7 @@ export class AuthGuard implements CanActivate {
 
     const user = await this.prismaService.user.findFirst({
       where: {
-        AND: [{ userId: Number(result.sub) }, { deletedAt: null }],
+        AND: [{ id: Number(result.sub) }],
       },
     });
 
