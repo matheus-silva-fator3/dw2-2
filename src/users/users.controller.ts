@@ -107,7 +107,7 @@ export class UsersController {
         description: 'Usuário editado',
       },
       {
-        status: 400,
+        status: 404,
         description: 'Usuário não existe ou foi deletado logicamente',
       },
     ],
@@ -143,7 +143,7 @@ export class UsersController {
         description: 'Usuário deletado',
       },
       {
-        status: 400,
+        status: 404,
         description: 'Usuário não existe ou foi deletado logicamente',
       },
     ],
